@@ -214,10 +214,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
             sense_y.push_back(it_map->y_f);
         }
     }
-
-    particles[i].associations.clear();
-    particles[i].sense_x.clear();
-    particles[i].sense_y.clear();
+    
     SetAssociations(particles[i],associations,sense_x,sense_y);
 
     // for std::discrete_distribution
