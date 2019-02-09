@@ -39,6 +39,15 @@ namespace {
 
         return weight;
     }
+
+//    template<class T>
+//    T constrainAngle(T x){
+//        T pi_2 = 2 * M_PI;
+//        x = fmod(x + M_PI,pi_2);
+//        if (x < 0)
+//            x += pi_2;
+//        return x - M_PI;
+//    }
 }
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
@@ -50,7 +59,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  num_particles = 3000;  // TODO: Set the number of particles
+  num_particles = 1000;  // TODO: Set the number of particles
 
   std::default_random_engine gen;
   double std_x, std_y, std_theta;  // Standard deviations for x, y, and theta
@@ -68,7 +77,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     p.id = i;
     p.x = dist_x(gen);
     p.y = dist_y(gen);
-    p.theta = dist_theta(gen);
+    p.theta = dist_theta(gen);//constrainAngle(dist_theta(gen));
     p.weight = 1;
     particles.push_back(p);
   }
@@ -109,7 +118,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
 
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
-    particles[i].theta = dist_theta(gen);
+    particles[i].theta = dist_theta(gen);//constrainAngle(dist_theta(gen));
   }
 }
 
@@ -213,6 +222,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
     particles[i].weight = (total_weight < 1.0) ? total_weight : particles[i].weight;
 
+    particles[i].associations.clear();
+    particles[i].sense_x.clear();
+    particles[i].sense_y.clear();
     SetAssociations(particles[i],associations,sense_x,sense_y);
 
     // for std::discrete_distribution
@@ -230,6 +242,7 @@ void ParticleFilter::resample() {
    std::random_device rd;
    std::mt19937 gen(rd());
    std::discrete_distribution<> d(weights.begin(),weights.end());
+   //double total_weight = std::accumulate(weights.begin(),weights.end(),0.0);
    std::vector<Particle> resampled_particles;
    for (int i = 0; i < num_particles; ++i) {
        Particle resampled_part = particles[d(gen)];
