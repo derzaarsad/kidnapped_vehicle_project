@@ -59,7 +59,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  num_particles = 1000;  // TODO: Set the number of particles
+  num_particles = 7000;  // TODO: Set the number of particles
 
   std::default_random_engine gen;
   double std_x, std_y, std_theta;  // Standard deviations for x, y, and theta
@@ -170,47 +170,42 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     double cos_theta = std::cos(particles[i].theta);
     double sin_theta = std::sin(particles[i].theta);
 
-    // computes the inverse of a transformation matrix
-    double det = cos_theta * cos_theta +
-                 sin_theta * sin_theta;
-
-    double invdet = 1 / det;
-
-    double minv00 = cos_theta * invdet;
-    double minv01 =  sin_theta * invdet;
-    double minv02 = (-sin_theta * y_part - x_part * cos_theta) * invdet;
-    double minv10 =  -sin_theta * invdet;
-    double minv11 = cos_theta * invdet;
-    double minv12 = (sin_theta * x_part - cos_theta * y_part) * invdet;
-
-    std::vector<LandmarkObs> mapInVeh;
+    std::vector<LandmarkObs> mapInDist;
     for (auto& map_landmark : map_landmarks.landmark_list) {
       double distance = dist(x_part, y_part, map_landmark.x_f, map_landmark.y_f);
       if(distance <= sensor_range) {
-        // transform to VEHICLE'S coordinate system
-        double x_map_in_veh = minv02 + (minv00 * map_landmark.x_f) + (minv01 * map_landmark.y_f);
-        double y_map_in_veh = minv12 + (minv10 * map_landmark.x_f) + (minv11 * map_landmark.y_f);
         LandmarkObs landmark;
         landmark.id = map_landmark.id_i;
-        landmark.x = x_map_in_veh;
-        landmark.y = y_map_in_veh;
-        mapInVeh.push_back(landmark);
+        landmark.x = map_landmark.x_f;
+        landmark.y = map_landmark.y_f;
+        mapInDist.push_back(landmark);
       }
     }
 
     // associate obs to landmark
-    std::vector<LandmarkObs> observations_ = observations;
-    dataAssociation(mapInVeh, observations_);
+    std::vector<LandmarkObs> observations_;
+    for (auto& obs : observations) {
+        LandmarkObs l;
+        l.id = obs.id;
+        l.x = x_part + (cos_theta * obs.x) - (sin_theta * obs.y);
+        l.y = y_part + (sin_theta * obs.x) + (cos_theta * obs.y);
+        observations_.push_back(l);
+    }
+    dataAssociation(mapInDist, observations_);
 
     // calculate weight
-    double total_weight = 1.0;
+    bool any_match = false;
     std::vector<int> associations;
     std::vector<double> sense_x;
     std::vector<double> sense_y;
     for(auto& obs : observations_) {
-        auto it = std::find_if(mapInVeh.begin(), mapInVeh.end(), [obs](LandmarkObs const& obj){ return obj.id == obs.id; });
-        if(it != mapInVeh.end()) {
-            total_weight *= multiv_prob(std_landmark[0], std_landmark[1], obs.x, obs.y, it->x, it->y);
+        auto it = std::find_if(mapInDist.begin(), mapInDist.end(), [obs](LandmarkObs const& obj){ return obj.id == obs.id; });
+        if(it != mapInDist.end()) {
+            if(!any_match) {
+                particles[i].weight = multiv_prob(std_landmark[0], std_landmark[1], obs.x, obs.y, it->x, it->y);
+                any_match = true;
+            } else
+                particles[i].weight *= multiv_prob(std_landmark[0], std_landmark[1], obs.x, obs.y, it->x, it->y);
 
             auto it_map = std::find_if(map_landmarks.landmark_list.begin(), map_landmarks.landmark_list.end(), [it](Map::single_landmark_s const& obj){ return obj.id_i == it->id; });
 
@@ -219,8 +214,6 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
             sense_y.push_back(it_map->y_f);
         }
     }
-
-    particles[i].weight = (total_weight < 1.0) ? total_weight : particles[i].weight;
 
     particles[i].associations.clear();
     particles[i].sense_x.clear();
