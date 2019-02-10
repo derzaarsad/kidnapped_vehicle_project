@@ -59,7 +59,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  num_particles = 7000;  // TODO: Set the number of particles
+  num_particles = 150;  // TODO: Set the number of particles
 
   std::default_random_engine gen;
   double std_x, std_y, std_theta;  // Standard deviations for x, y, and theta
@@ -103,7 +103,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   for (int i = 0; i < num_particles; ++i) {
 
       double pred_x, pred_y, pred_theta;
-      if(yaw_rate < 1e-10) {
+      if(std::fabs(yaw_rate) < 1e-10) {
           pred_x = particles[i].x + velocity * delta_t * cos(particles[i].theta);
           pred_y = particles[i].y + velocity * delta_t * sin(particles[i].theta);
           pred_theta = particles[i].theta;
